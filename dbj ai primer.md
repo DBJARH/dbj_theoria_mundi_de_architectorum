@@ -10,7 +10,7 @@ version: 0.5.9
 
 <img src="assets/image.png" width="75%" />
 
-(just an caricature)
+(that is just an caricature)
 
 - **AI** : Artificial Intelligence. Has no single simple, universally accepted definition. Unfortunately marketing industrial complex has produced enough false definitions for public to be manipulated into believing AI is what marketing says it is. The best I can offer is this: `AI is not a technology`. And the next best I can do beside that is to ask avid readers to visit [Britannica on line suite](https://www.britannica.com/technology/artificial-intelligence), devoted to the subject. Where I did learnt, AI is far from being just a technology.
 
@@ -28,6 +28,8 @@ Model (abstract)
         └── Sonnet5 : LLM // example, concrete: specific weights, specific release
 ```
  That is a simple, effective explanation of what AI actually amounts to in 2026.
+
+ <div style="page-break-after: always;"></div>
 
 ## The Harness
 >
@@ -47,6 +49,8 @@ Claude Code, Cowork,etc. are example harnesses, the programs around the remote m
 ![alt text](assets/harness-logical.png)
 
 User (You) experienced behavior of the harness is dictated also by this fact: the **model** it references is stateless. Everything humans experience as "agent [paraphernalia](#paraphernalia)" (memory, tool use, multi-turn state) comes from the harness in need of orchestrating repeated calls to that stateless model, not from the model itself. 
+
+<div style="page-break-after: always;"></div>
 
 # Vocabulary
 
