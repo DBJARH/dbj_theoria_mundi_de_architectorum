@@ -2,7 +2,7 @@
 version: 0.5.9
 ---
 
-# Core AI Vocabulary 
+# AI Primer 
 
 [The architects' view of the AI world](#theoria-mundi-de-architectorum).
 
