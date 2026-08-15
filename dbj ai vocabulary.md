@@ -22,9 +22,9 @@ Presented as an object oriented inheritance chain
 ```c
 Model (abstract)
   └── LLM : Model        // transformer, trained on text
-        └── Sonnet5 : LLM // concrete: specific weights, specific release
+        └── Sonnet5 : LLM // example, concrete: specific weights, specific release
 ```
- That (to me) seems very effective  and simple explanation, of absolute core of what is AI landed.
+ That seems a very effective and simple explanation, of what is AI landed into the reality 2026. 
 
 ## The Harness
 
@@ -34,13 +34,19 @@ Claude Code, Cowork are example harnesses, the program around the remote model c
 
 ![alt text](assets/harness-logical.png)
 
-User experienced behavior of the harness is dictated by a fact: the **model** it references is stateless. Everything humans experience as "agent behavior" (memory, tool use, multi-turn state) comes from the harness orchestrating repeated calls to that stateless model, not from the model itself. 
+User (You) experienced behavior of the harness is dictated also by this fact: the **model** it references is stateless. Everything humans experience as "agent [paraphernalia](#paraphernalia)" (memory, tool use, multi-turn state) comes from the harness in need of orchestrating repeated calls to that stateless model, not from the model itself. 
+
+Harness is just a communication end point you use to chat with the Model. For example `Sonnet 5`.
 
 > Example of a manifestation of a harness on a windows desktop is `claude.exe`. Windows CLI program.
 
 # Vocabulary
 
 ### [Theoria mundi de architectorum](readme.md#theoria-mundi-de-architectorum)
+
+### Paraphernalia
+
+The assorted gear that comes with an activity, not the activity itself.
 
 ### Category
 
