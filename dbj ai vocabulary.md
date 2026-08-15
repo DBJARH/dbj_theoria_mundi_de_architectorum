@@ -28,9 +28,9 @@ Model (abstract)
 
 ## The Harness
 
-"Harness" is the term used in agentic-AI circles for the scaffolding around a model. The CLI program, tool-calling loop, permission system, context management. Operator using that, experiences an LLM as an agent that can act. Claude Code is Anthropic's harness for Claude: it wraps the model calling with file/bash/edit tools, a loop, and guardrails.
+"Harness" is the term used in agentic-AI circles for the scaffolding around a view onto the model. In reality harness is the program containing tool-calling loop, permission system, context management. Operator using harness program (example `claude.exe` on Windows), experiences an LLM as an agent that can act. Claude Code is Anthropic's harness for Claude: it wraps the model calling with file/bash/edit tools, a loop, and [guardrails](#guardrails).
 
-Claude Code, Cowork are example harnesses, the program around the remote model call. The local desktop tools are given (file editing, bash, browser, etc.), as well as how much memory/context it keeps, and what actions it's allowed to take, on your desktop.
+Claude Code, Cowork,etc. are example harnesses, the programs around the remote model calls. The local desktop tools are given to it (file editing, bash, browser, etc.); as well as how much memory/[context](#context) it keeps, and what actions it's allowed to take, on your desktop.
 
 ![alt text](assets/harness-logical.png)
 
@@ -43,6 +43,14 @@ Harness is just a communication end point you use to chat with the Model. For ex
 # Vocabulary
 
 ### [Theoria mundi de architectorum](readme.md#theoria-mundi-de-architectorum)
+
+### Context
+
+The text sent with prompt, to the stateless model on each call. The harness assembles it. Stateless means, the model has no memory of anything outside the context. It answers the prompt, sends the response back. Forgets if has ever happened.
+
+### Guardrails
+
+Are the limits on the harness program's activity. The human user experiences them as limits on what the model is allowed to do.
 
 ### Paraphernalia
 
