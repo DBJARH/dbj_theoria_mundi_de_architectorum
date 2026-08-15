@@ -36,8 +36,7 @@ Model (abstract)
 > &nbsp;
 > 
 > Harness is just a communication end point you use  to chat with the Model. For example `Sonnet 5`.
->
-> Example of a manifestation of a harness on a windows desktop is `claude.exe`. Windows CLI program.
+>Example of a manifestation of a harness on a windows desktop is `claude.exe`. An normal Windows CLI program.
 >
 > &nbsp;
 > 
