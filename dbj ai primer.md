@@ -1,3 +1,6 @@
+---
+version: 0.5.9
+---
 
 # Core AI Vocabulary 
 
