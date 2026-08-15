@@ -1,0 +1,30 @@
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# Editors
+.vs/
+.vscode/*
+!.vscode/settings.json
+*.swp
+*~
+
+# draw.io backups (the .drawio source itself is a tracked deliverable)
+*.drawio.bkp
+*.drawio.dtmp
+
+# C++ build output
+build/
+out/
+bin/
+obj/
+*.o
+*.obj
+*.exe
+*.dll
+*.lib
+*.pdb
+*.ilk
