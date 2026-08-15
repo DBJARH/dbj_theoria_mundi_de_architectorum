@@ -17,14 +17,14 @@ Further down the road, there are 3 key abstractions.
 - **LLM**: A Model subclass constrained to transformer-based architectures, autoregressively trained on large text corpora.
 - **Sonnet5**: A concrete LLM instance — Anthropic's specific trained checkpoint with fixed weights, currently answering you.
 
-Presented as an OOP inheritance chain
+Presented as an object oriented inheritance chain
 
 ```c
 Model (abstract)
   └── LLM : Model        // transformer, trained on text
         └── Sonnet5 : LLM // concrete: specific weights, specific release
 ```
- That (to me) seems simpler explanation.
+ That (to me) seems very effective  and simple explanation, of absolute core of what is AI landed.
 
 ## The Harness
 
