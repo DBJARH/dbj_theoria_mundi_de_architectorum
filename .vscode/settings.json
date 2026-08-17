@@ -1,0 +1,7 @@
+{
+  "cSpell.ignorePaths": [
+    "**/*.drawio",
+    "**/*.drawio.svg",
+    "**/*.drawio.png"
+  ]
+}
