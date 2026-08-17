@@ -6,11 +6,7 @@ Guidance for Claude Code when working in this repository.
 
 ## Conversation protocol
 
-1. Be sure to have read and understood user scope claude.md
-1. For use scope arh see here G:\REPOS\DBJDBJ\about\.claude\user_scope, or the remote GH version of it.
-1. For permission state of affair see G:\REPOS\DBJDBJ\about\.claude\dbj_claude_permissions, or the remote GH version of it.
-
-When remote both are here: github.com.DBJDBJ/about . Private DBJDBJ repo.
+Is fully described in user scope claude.md
 
 ## What this repo is
 

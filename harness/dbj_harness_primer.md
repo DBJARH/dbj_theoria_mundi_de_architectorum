@@ -22,60 +22,84 @@ See [Vocabulary](#vocabulary) for terms.
 
 **WHY does a harness need to exist?**
 
-[Conceptual: the asymmetrical conversation](../diagrams/harness-conceptual-human-model-conversation.drawio)
+![alt text](../assets/harness-conceptual-human-model-conversation.png)
 
-A Large Language Model is a chat interlocutor with one defect: it forgets everything the moment it has replied. It is not a service you call and not a program you run. It is a correspondent — omniscient, and amnesiac.
+Conceptually the model is global multi user machinery answering general purpose questions, in the from of textual prompts. Replying with the single text to the remote caller.  
 
-That produces an asymmetry between the two parties:
+The first obvious problem it has is, it must be **stateless**. Conversation state management would be practically impossible for hundreds of millions of simultanoeus conversations.
 
-- **A** starts the conversation, knows the full context, remembers everything — and cannot answer.
-- **B** answers anything — and cannot remember.
+The sole purpose of Harness existence is a model conversations management simulation.  Simulation is achieved by composing a (small) book of pages around each new user prompt arrived. Those pages describe the full conversation context. "Everything" on the caller side.
 
-Neither can do the work alone. And because B remembers nothing, A cannot send a message. A must
-send **the whole conversation, every time**: who B is meant to be, what is known, what has been
-said so far, what happened last time, and only then the new question. Not a page. A book. One page
-longer at every exchange.
+Harness on first reply from the model, will keep composing a new book for next call. Using again the calling context and crucially the bits from the previous reply it just received. And so on in a "loop" until the model reply has no enough feedback for the next book to be made. At which moment harness decides to compose the final reply for the caller to be used.
 
-**That is the harness: the interlocutor who keeps the book.**
-
-Everything else follows. The harness manages the asymmetrical conversation so that the model
-*appears* to work on a task. The appearance is the product. Neither party is working in any
-ordinary sense — but the exchange, run in a loop until a final reply, looks like work and is
-useful like work.
-
-Note what this layer does *not* contain: no application, no tools, no loop mechanics, no vendor.
-Those are answers to later questions. If a "harness" explanation begins with tool calls, it has
-skipped the reason the thing exists.
+So the whole "play" is full of assumptions and non deterministic events. But. It still works somehow. Evidently. 
 
 ---
 
-## 2. Logical Harness
+## 2. Logical Architecture 
 
 **WHAT does it consist of?**
 
 ![Logical: four roles](../assets/harness-logical.png)
 
-Within the boundary set by the concept, four roles appear:
+> Architecture is the formal description of a system *and its parts*.
 
-| Role | Responsibility |
-|---|---|
-| **User** | sets the task, judges the result, can refuse |
-| **Harness** | keeps the book, drives the exchange, carries out what comes back |
-| **Model** | reads the book, returns a reply |
-| **Tool** | changes something, or reports something, in the real world |
+The conceptual layer is where the requirements started forming. This layer names the parts that make the architecture manageable and must act together to meet them.
 
-The harness is the only role connected to all others. That is the whole of the logical claim: it
-sits in the middle because the other three cannot reach each other.
+Each part gets two halves. **Why it exists** is the requirement inherited from the concept. **What
+it does** is its role — and roles are what this layer adds.
 
-**Tool** enters here and not at the conceptual layer, for a reason worth stating. Conceptually the
-model only replies. Logically we require effects — a file written, a command run, a page fetched —
-because a conversation that changes nothing is not work. The tool role exists to give the
-conversation consequences.
+### Calling Site — the calling environment, the user's habitat
 
-This is the layer where product owners work. It says what capabilities must be solved without
-saying how: *the harness must persist context*, *the harness must mediate every effect*, *the user
-must be able to refuse*. Business analysts concretise it further — workflow diagrams showing where
-this sits in an operating model, capability maps, non-functional requirements. Still no code.
+**Why it exists** — to start the conversation, and to use whatever benefit the Model can deliver.
+The concept says nothing about where the caller sits; the moment we build, it has to sit somewhere.
+
+**What it does** — issues the prompt, supplies whatever local context exists, receives the final
+answer. It also owns the refusal: effects are real, and the calling site is where a human can say no.
+
+### Harness — the functional point relying on the Model's presence and abilities
+
+**Why it exists** — the Model is stateless, so the conversation has to be simulated by somebody.
+That is the requirement the concept hands over, and nothing else in the picture can take it.
+
+**What it does** — keeps the book, sends it, reads the reply, carries out what the reply asks for,
+and decides whether to go round again.
+
+Note the word **functional**. The Harness is a process: prompt and context in, final answer out.
+Nothing about it requires a human to be watching. That is precisely what makes automation possible
+— the Harness can be invoked by a script, a schedule, or another Harness, and the shape does not
+change. The human at the calling site is optional. That is the whole opening for agentic automation,
+and it exists because the Harness is a function, not a conversation partner.
+
+### Model
+
+**Why it exists** — it is the only part that can answer. Without it there is no conversation to
+simulate.
+
+**What it does** — reads the book, returns a reply, forgets. Nothing else. It cannot act, and it
+does not know it is in a loop.
+
+### Tools
+
+A managed appearance of the calling environment's functionality, composed as a controlled set.
+
+**Why it exists** — the Model produces text and text alone. A conversation that changes nothing is
+not work, so something must convert text into real effects. Note *controlled*: because the effects
+are real, the set of what may be done is deliberately bounded.
+
+**What it does** — ordinary local operations: write the file, run the command, fetch the page.
+Reports back what happened, as text, because text is the only thing that can go into the next book.
+
+### The shape that results
+
+Only the Harness touches everything. The Calling Site never reaches the Model. The Model never
+reaches a Tool. Everything passes through the middle, because the middle is the only part that
+remembers anything.
+
+And one responsibility lands there that nobody assigned: **deciding when to stop**. The calling site
+is not in the loop. The Model does not know there is one. So the Harness judges each reply and
+decides whether the task is finished — a decision made on assumptions, by the one part that was
+never told what "finished" means.
 
 ---
 
