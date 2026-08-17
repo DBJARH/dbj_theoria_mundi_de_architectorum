@@ -1,17 +1,13 @@
 ---
-version: 0.1
+version: 0.2
 ---
 
 # The Harness — a Primer
 
-The word "harness" is used constantly and defined rarely. This primer defines it across three
-architecture layers, in that order, because the usual explanations start at the last one and
-therefore explain nothing.
-
 | Layer | Question | Who works here |
 |---|---|---|
-| [Conceptual](#1-conceptual-harness) | WHY does a harness need to exist? | architects |
-| [Logical](#2-logical-harness) | WHAT does it consist of? | product owners, business analysts |
+| [Conceptual](#1-the-harness-concept) | WHY does a harness need to exist? | architects and stakeholders |
+| [Logical](#2-logical-architecture) | WHAT it is, after we decided why it is | product owners, business analysts |
 | [Physical](#3-physical-harness-app-architecture) | HOW is one built? | engineers |
 
 See [Vocabulary](#vocabulary) for terms.
@@ -24,82 +20,89 @@ See [Vocabulary](#vocabulary) for terms.
 
 ![alt text](../assets/harness-conceptual-human-model-conversation.png)
 
-Conceptually the model is global multi user machinery answering general purpose questions, in the from of textual prompts. Replying with the single text to the remote caller.  
+The harness concept is the ATM concept. A very simple interface — a slot, a few buttons — in front
+of machinery the customer never sees and never needs to: accounts, ledgers, networks, clearing.
+One institution, many customers, each served as if alone. The simplicity at the front is not the
+absence of complexity behind it; it is what the whole arrangement is *for*.
 
-The first obvious problem it has is, it must be **stateless**. Conversation state management would be practically impossible for hundreds of millions of simultanoeus conversations.
+A harness dispenses replies from the model the way an ATM dispenses cash from the bank.
 
-The sole purpose of Harness existence is a model conversations management simulation.  Simulation is achieved by composing a (small) book of pages around each new user prompt arrived. Those pages describe the full conversation context. "Everything" on the caller side.
+The model is a single global machine answering general purpose questions for very many callers at
+once. To do that it must be **stateless**: holding conversation state for hundreds of millions of
+simultaneous conversations is not feasible. It reads a text, replies with a text, and forgets.
 
-Harness on first reply from the model, will keep composing a new book for next call. Using again the calling context and crucially the bits from the previous reply it just received. And so on in a "loop" until the model reply has no enough feedback for the next book to be made. At which moment harness decides to compose the final reply for the caller to be used.
+The caller wants the opposite of that. A conversation. Something that remembers what was already
+said, and is therefore worth their time.
 
-So the whole "play" is full of assumptions and non deterministic events. But. It still works somehow. Evidently. 
+That gap is why the harness exists. It is the **communication dispatcher between the many callers
+and the one model** — the part that lets a caller experience an ordinary, business valuable
+conversation with a machine that has no memory.
+
+Two units carry the traffic:
+
+**Page** — a single prompt, or a single text describing some part of the context. What the caller
+sends, and what the model replies with.
+
+**Book** — pages bound together: the full conversation context, and the original prompt. Books are
+what the harness sends to the model, and only the harness makes them.
+
+The asymmetry is the whole point: **the caller deals in pages, the model is handed books.** Each
+reply that arrives becomes part of the next book, which is sent again. That repeats until a reply
+carries nothing needing another round, and the caller receives one page — the final reply.
 
 ---
 
 ## 2. Logical Architecture 
 
-**WHAT does it consist of?**
+**WHAT it is, after we decided why it is.**
 
-![Logical: four roles](../assets/harness-logical.png)
+![](../assets/harness-logical-architecture.drawio.png)
 
 > Architecture is the formal description of a system *and its parts*.
 
-The conceptual layer is where the requirements started forming. This layer names the parts that make the architecture manageable and must act together to meet them.
+The Harness has three parts. The Model is not one of them — it is external, and only one part ever
+speaks to it.
 
-Each part gets two halves. **Why it exists** is the requirement inherited from the concept. **What
-it does** is its role — and roles are what this layer adds.
+### Calling Site
 
-### Calling Site — the calling environment, the user's habitat
+The sum of parts of the context. Every source that contributes something the Model may need: the
+prompt itself, the files on disk, the instructions, whatever happened last time. It is also where
+the final reply arrives.
 
-**Why it exists** — to start the conversation, and to use whatever benefit the Model can deliver.
-The concept says nothing about where the caller sits; the moment we build, it has to sit somewhere.
+A human is one such source. So is a script, a schedule, another Harness. None of them is privileged
+— which is precisely what makes automation possible: replace the human with a cron entry and
+nothing else in this picture changes.
 
-**What it does** — issues the prompt, supplies whatever local context exists, receives the final
-answer. It also owns the refusal: effects are real, and the calling site is where a human can say no.
+### Book Factory
 
-### Harness — the functional point relying on the Model's presence and abilities
+Binds pages into books, sends them, and reads what comes back.
 
-**Why it exists** — the Model is stateless, so the conversation has to be simulated by somebody.
-That is the requirement the concept hands over, and nothing else in the picture can take it.
+This is the only part that touches the Model, and the only part that holds anything. It exists
+because the Model is stateless: the conversation has to be assembled by somebody, on every single
+call, from scratch.
 
-**What it does** — keeps the book, sends it, reads the reply, carries out what the reply asks for,
-and decides whether to go round again.
+One responsibility lands here that nobody assigned: **deciding when to stop**. The Calling Site is
+not watching. The Model does not know it is being called repeatedly. So the Book Factory judges each
+reply and decides whether there is another book to make — a decision taken on assumptions, by the
+one part that was never told what "finished" means.
 
-Note the word **functional**. The Harness is a process: prompt and context in, final answer out.
-Nothing about it requires a human to be watching. That is precisely what makes automation possible
-— the Harness can be invoked by a script, a schedule, or another Harness, and the shape does not
-change. The human at the calling site is optional. That is the whole opening for agentic automation,
-and it exists because the Harness is a function, not a conversation partner.
+### Actuators
 
-### Model
+The bounded set of what may be done locally. See [Vocabulary](#vocabulary) for where the term comes
+from.
 
-**Why it exists** — it is the only part that can answer. Without it there is no conversation to
-simulate.
+The Model produces text and text alone, and a conversation that changes nothing is not work. The
+Actuators are what converts a decision into an effect: write the file, run the command, fetch the
+page. They read the Calling Site and they change it.
 
-**What it does** — reads the book, returns a reply, forgets. Nothing else. It cannot act, and it
-does not know it is in a loop.
+Note **bounded**. The effects are real, so the set is chosen in advance rather than left open. And
+whatever an Actuator does, it reports back as a page — text being the only thing that can go into
+the next book.
 
-### Tools
+### Model — external
 
-A managed appearance of the calling environment's functionality, composed as a controlled set.
-
-**Why it exists** — the Model produces text and text alone. A conversation that changes nothing is
-not work, so something must convert text into real effects. Note *controlled*: because the effects
-are real, the set of what may be done is deliberately bounded.
-
-**What it does** — ordinary local operations: write the file, run the command, fetch the page.
-Reports back what happened, as text, because text is the only thing that can go into the next book.
-
-### The shape that results
-
-Only the Harness touches everything. The Calling Site never reaches the Model. The Model never
-reaches a Tool. Everything passes through the middle, because the middle is the only part that
-remembers anything.
-
-And one responsibility lands there that nobody assigned: **deciding when to stop**. The calling site
-is not in the loop. The Model does not know there is one. So the Harness judges each reply and
-decides whether the task is finished — a decision made on assumptions, by the one part that was
-never told what "finished" means.
+Reads the book, returns a page, forgets. Nothing else. It cannot act, it holds nothing, and it does
+not know it is in a loop.
 
 ---
 
@@ -167,6 +170,12 @@ a dispatch table, and a loop.
 ---
 
 ## Vocabulary
+
+**Actuator** — in control engineering, the part of a system that converts a signal into a physical
+effect: motors, valves, relays, solenoids. The standard pairing is **sensors** carrying the world
+into the system and **actuators** carrying the system's decisions back out; everything between them
+is computation. Borrowed here for the same reason: the model decides, and something else has to
+move.
 
 **Harness** — the interlocutor that keeps the conversation state on behalf of a stateless model,
 and turns its replies into effects. A concept, not a product.

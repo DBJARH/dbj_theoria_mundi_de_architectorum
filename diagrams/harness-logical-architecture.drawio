@@ -1,0 +1,47 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.0 Safari/537.36" version="29.6.1">
+  <diagram name="logical" id="harness-logical-architecture">
+    <mxGraphModel dx="432" dy="371" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="boundary" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;dashed=1;dashPattern=8 8;verticalAlign=top;align=center;spacingLeft=16;spacingTop=8;fontStyle=1;fontSize=20;strokeWidth=3;" value="Harness" vertex="1">
+          <mxGeometry height="420" width="620" x="40" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="callingsite" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fontSize=18;strokeWidth=5;align=center;spacingLeft=45;verticalAlign=top;spacingTop=6;" value="Calling Site&lt;br&gt;&lt;font style=&quot;font-size: 11px;&quot; color=&quot;#666666&quot;&gt;sum of&lt;br&gt;parts of the context&lt;/font&gt;" vertex="1">
+          <mxGeometry height="125" width="250" x="75" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="actuators" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fontSize=18;strokeWidth=5;" value="Actuators&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot; color=&quot;#666666&quot;&gt;the bounded set of what&lt;br&gt;may be done locally&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="200" x="100" y="350" as="geometry" />
+        </mxCell>
+        <mxCell id="bookfactory" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fontSize=18;strokeWidth=5;" value="Book Factory&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot; color=&quot;#666666&quot;&gt;binds pages into books&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="200" x="420" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="model" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fontStyle=1;fontSize=18;strokeWidth=5;" value="Model&lt;br&gt;&lt;font style=&quot;font-size: 11px&quot; color=&quot;#666666&quot;&gt;external, stateless&lt;/font&gt;" vertex="1">
+          <mxGeometry height="90" width="200" x="800" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="e-cs-bf" edge="1" parent="1" source="callingsite" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=5;startArrow=classic;startFill=1;fontSize=14;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="bookfactory" value="Pages">
+          <mxGeometry relative="1" x="0.0545" y="15" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-act-bf" edge="1" parent="1" source="actuators" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=5;startArrow=classic;startFill=1;fontSize=14;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="bookfactory" value="Pages">
+          <mxGeometry relative="1" x="-0.0473" y="-17" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-cs-act" edge="1" parent="1" source="callingsite" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=5;startArrow=classic;startFill=1;fontSize=14;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;verticalAlign=middle;labelBackgroundColor=#FFFFFF;" target="actuators" value="reads / influences">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-bf-model" edge="1" parent="1" source="bookfactory" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=5;fontSize=14;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;verticalAlign=bottom;" target="model" value="Books">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-model-bf" edge="1" parent="1" source="model" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=5;fontSize=14;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;verticalAlign=top;" target="bookfactory" value="Pages">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="DKSDMHKIAvl60eeOBh7A-1" parent="1" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;align=left;strokeWidth=2;strokeColor=#8E8E8E;" value="&lt;span style=&quot;color: rgb(153, 153, 153); font-size: 10px;&quot;&gt;human · script · schedule · another harness&lt;/span&gt;" vertex="1">
+          <mxGeometry height="60" width="30" x="97" y="169" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
