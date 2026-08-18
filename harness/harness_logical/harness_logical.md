@@ -29,4 +29,26 @@ Harness "duties"
 ## Physical View: Harness and the Runtime Environment
 
 
+Page is useful abstraction in this protocol.
+
+1. class Page
+   1. subclass PageReply
+      1. subclass PageErrorReply
+
+That is logical, will be implemented as JSON. To travel with textual reply.
+
+
+## Application View
+
+```py
+book = initial_book()
+for turn in range(MAX_TURNS):
+    page = model.generate(book)
+    if page.is_final():
+        reply_to_caller(page.answer)
+        break
+    tool_results = execute_tools(page.tool_calls)
+    book = book.append(tool_results)
+```
+
 
