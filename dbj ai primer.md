@@ -32,6 +32,9 @@ Model (abstract)
  <div style="page-break-after: always;"></div>
 
 ## The Harness
+
+![](harness/harness_arch_story/call-harness-model.png)
+
 >
 > &nbsp;
 > 
@@ -44,8 +47,6 @@ Model (abstract)
 "Harness" is the term used in agentic-AI circles for the scaffolding around a view onto the model. In reality harness is the program containing tool-calling loop, permission system, context management. Operator using harness program (example `claude.exe` on Windows), experiences an LLM as an agent that can act. Claude Code is Anthropic's harness for Claude: it wraps the model calling with file/bash/edit tools, a loop, and [guardrails](#guardrails).
 
 Claude Code, Cowork,etc. are example harnesses, the programs around the remote model calls. The local desktop tools are given to it (file editing, bash, browser, etc.); as well as how much memory/[context](#context) it keeps, and what actions it's allowed to take, on your desktop.
-
-![alt text](assets/harness-logical.png)
 
 User (You) experienced behavior of the harness is dictated also by this fact: the **model** it references is stateless. Everything humans experience as "agent [paraphernalia](#paraphernalia)" (memory, tool use, multi-turn state) comes from the harness in need of orchestrating repeated calls to that stateless model, not from the model itself. 
 
