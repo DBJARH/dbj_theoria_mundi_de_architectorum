@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 #
-# to.sh -- write one message to the .colocuting transcript.
+# to -- write one message to the .colocuting transcript.
 #
 # One argument per run, and one message per run. A message is an array of
 # one or more strings, 1024 characters each.
 #
-#   ./to.sh                    pick who you are from a numbered list
-#   ./to.sh --colocutor ASH    you are ASH, skip the list
-#   ./to.sh ASH                the same, without the flag
-#   ./to.sh --reset            park the transcript, start an empty one
-#   ./to.sh --help             the same list, on screen
-#   ./to.sh --version          the version and nothing else
+#   ./to                    pick who you are from a numbered list
+#   ./to --colocutor ASH    you are ASH, skip the list
+#   ./to ASH                the same, without the flag
+#   ./to --reset            park the transcript, start an empty one
+#   ./to --help             the same list, on screen
+#   ./to --version          the version and nothing else
 #
 # It lives beside the transcript, in .colocuting/. Run it from anywhere.
 #
@@ -39,22 +39,22 @@ die() { printf '%s\n' "$*" >&2; exit 1; }
 
 usage() {
 	printf '%s\n' \
-		"to.sh $VERSION -- write one message to the .colocuting transcript." \
+		"to $VERSION -- write one message to the .colocuting transcript." \
 		"A message is built in here as an array of one or more strings, $MAXLEN characters each." \
 		"ENTER on an empty line ends and sends the message." \
 		"" \
 		"One argument per run, and one message per one run." \
 		"" \
 		"" \
-		"  ./to.sh                    pick who you are from a numbered list, then pick to whom you will send" \
-		"  ./to.sh --colocutor ASH    you are sender ASH, skip the list" \
-		"  ./to.sh ASH                the same, without the flag" \
-		"  ./to.sh --reset            remove the transcript and park it in the backup/, start with empty transcript" \
-		"  ./to.sh --payload '<json>' just write the message json, without asking anything -- for agents" \
-		"  ./to.sh --help             this" \
-		"  ./to.sh --version          the version and nothing else" \
+		"  ./to                    pick who you are from a numbered list, then pick to whom you will send" \
+		"  ./to --colocutor ASH    you are sender ASH, skip the list" \
+		"  ./to ASH                the same, without the flag" \
+		"  ./to --reset            remove the transcript and park it in the backup/, start with empty transcript" \
+		"  ./to --payload '<json>' just write the message json, without asking anything -- for agents" \
+		"  ./to --help             this" \
+		"  ./to --version          the version and nothing else" \
 		"" \
-		"to.sh It asks who the message is for, then takes text lines one by one." \
+		"to asks who the message is for, then takes text lines one by one." \
 		"Before writing it waits for lock.md to be missing, it is made if somebody else is writing." \
 		"It gives up after 5 minutes and exits 1 -- a stale lock is a human's job to remove." \
 		"" \
@@ -228,7 +228,7 @@ if [ -n "$PAYLOAD" ]; then
 		*) die "--payload has no message key." ;;
 	esac
 	case "$FLAT" in
-		*'"when"'*) die "--payload must not carry when. to.sh writes the time." ;;
+		*'"when"'*) die "--payload must not carry when. to writes the time." ;;
 	esac
 
 	# Strip the outer braces; what is left is the body of the entry.
@@ -262,7 +262,14 @@ if [ -z "$ME" ]; then
 	ME="$(pick_from_list 'Who are you?' "${SENDERS[@]}")"
 fi
 
-TO="$(pick_from_list "You are $ME. Who is this for?" "${NAME_LIST[@]}")"
+# Everybody but yourself. Writing a message to yourself is not a thing.
+RECIPIENTS=()
+for name in "${NAME_LIST[@]}"; do
+	[ "$name" = "$ME" ] || RECIPIENTS+=("$name")
+done
+[ "${#RECIPIENTS[@]}" -gt 0 ] || die "there is nobody but you in colocutor_names.json."
+
+TO="$(pick_from_list "You are $ME. Who is this for?" "${RECIPIENTS[@]}")"
 
 # ------------------------------------------------------------ last message
 #

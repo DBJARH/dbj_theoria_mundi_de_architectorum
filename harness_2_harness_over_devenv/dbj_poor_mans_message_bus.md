@@ -31,8 +31,8 @@ Contents of the folder.
   transcript.json        # the conversation, oldest first
   stop                   # present = agents stand still
   lock.md                # present = someone is writing, wait
-  to.sh                  # write one message from the command line
-  backup/                # transcripts parked by to.sh --reset
+  to                     # write one message from the command line
+  backup/                # transcripts parked by to --reset
 ```
 
 One transcript, appended to. The last entry is the latest thing said.
@@ -124,7 +124,7 @@ an array of one. Nobody should have to read `\n` inside a wall of JSON.
 6. **`lock.md` guards the write.** Take it, read, write, drop it. Never
    hold it across a pause, and never write without it. It is not a halt
    — an agent that finds it simply waits.
-7. **`to.sh` is the only way in.** Nothing else writes to
+7. **`to` is the only way in.** Nothing else writes to
    `transcript.json`. Agents use `--payload`, humans type. An agent that
    assembles the file itself is doing the lock by hand and will get it
    wrong, which is how the message was lost on 2026-08-31.
@@ -142,10 +142,10 @@ an array of one. Nobody should have to read `\n` inside a wall of JSON.
 
 ## Writing to it
 
-Through `to.sh`, and no other way:
+Through `to`, and no other way:
 
 ```
-.colocuting/to.sh --payload '{"colocutor":"ASH","message":["ZED >>> hello"]}'
+.colocuting/to --payload '{"colocutor":"ASH","message":["ZED >>> hello"]}'
 ```
 
 The script adds `when`, takes `lock.md`, appends, renames, and drops the
@@ -222,7 +222,7 @@ carries the rules with it:
 Otherwise read .colocuting/transcript.json and find what is new for <ID>
 or ALL since you last looked. Nothing new: say "nothing new" and stop.
 Something new: reply in the transcript, and only through the script --
-.colocuting/to.sh --payload '{"colocutor":"<ID>","message":["<TO> >>> ..."]}'
+.colocuting/to --payload '{"colocutor":"<ID>","message":["<TO> >>> ..."]}'
 addressed to whoever raised it. Never write transcript.json yourself.
 Discuss, disagree, ask. If you agree something should be
 done, do it — build, run the tests, and say in the transcript what you
@@ -242,12 +242,12 @@ looking; nothing is lost, it simply reads further back next time.
 `.colocuting/` is tracked as an empty folder, via `.gitkeep`, and so is
 `colocutor_names.json` — a clone needs to know who may take part.
 `transcript.json`, `stop`, `lock.md` and `backup/` are ignored, so a
-clone has todays but not yesterday's talk. `to.sh` is tracked — a clone
+clone has todays but not yesterday's talk. `to` is tracked — a clone
 needs the way to write.
 
 **Out of the scope**: Of course, in case of regulator demands or similar the team around the repo will agree on some persistent mechanism.
 
-## to.sh 
+## to 
 
 > cli script for writing
 
@@ -289,7 +289,7 @@ at anything on disk, so they work in a folder that has no transcript.
 The script carries its own semver, starting at `0.1.0`, independent of
 this document's version.
 
-The script is `to.sh`, beside this document. It is copied into
+The script is `to`, beside this document. It is copied into
 `.colocuting/` to be used, since it reads `colocutor_names.json` and
 writes `transcript.json` from its own folder.
 
