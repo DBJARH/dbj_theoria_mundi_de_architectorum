@@ -6,8 +6,7 @@
 # one or more strings, 1024 characters each.
 #
 #   ./to                    pick who you are from a numbered list
-#   ./to --colocutor ASH    you are ASH, skip the list
-#   ./to ASH                the same, without the flag
+#   ./to --from ASH         you are ASH, skip the list
 #   ./to --reset            park the transcript, start an empty one
 #   ./to --help             the same list, on screen
 #   ./to --version          the version and nothing else
@@ -34,6 +33,7 @@ BACKUP="$HERE/backup"
 MAXLEN=1024
 WAIT=30
 TRIES=10
+ASKS=5
 
 die() { printf '%s\n' "$*" >&2; exit 1; }
 
@@ -48,8 +48,7 @@ usage() {
 		"" \
 		"" \
 		"  ./to                    pick who you are from a numbered list, then pick to whom you will send" \
-		"  ./to --colocutor ASH    you are sender ASH, skip the list" \
-		"  ./to ASH                the same, without the flag" \
+		"  ./to --from ASH         you are sender ASH, skip the list" \
 		"  ./to --reset            remove the transcript and park it in the backup/, start with empty transcript" \
 		"  ./to --payload '<json>' just write the message json, without asking anything -- for agents" \
 		"  ./to --help             this" \
@@ -106,28 +105,40 @@ for name in "${NAME_LIST[@]}"; do
 done
 [ "${#SENDERS[@]}" -gt 0 ] || die "colocutor_names.json holds nobody who could write."
 
-# pick_from_list <prompt> <name...>  -- echoes the chosen name.
+# pick_from_list <prompt> <name...>  -- leaves the answer in PICKED.
+#
+# PICKED and not a $( ) command substitution: die inside a substitution
+# only kills the subshell, and the script would sail on with an empty
+# name after telling the user nothing was written.
+PICKED=""
 pick_from_list() {
 	local prompt="$1" i choice
 	shift
 	local list=("$@")
-	printf '%s\n' "$prompt" >&2
+	printf '%s\n' "$prompt"
 	for i in "${!list[@]}"; do
-		printf '  %d) %s\n' "$((i + 1))" "${list[$i]}" >&2
+		printf '  %d) %s\n' "$((i + 1))" "${list[$i]}"
 	done
+	local asked=0
 	while true; do
-		printf 'number: ' >&2
-		read -r choice || die ""
+		asked=$((asked + 1))
+		if [ "$asked" -gt "$ASKS" ]; then
+			die "$ASKS tries and no number between 1 and ${#list[@]}. Nothing written."
+		fi
+		printf 'number: '
+		# Ctrl-D, or a pipe that ran out.
+		read -r choice || die "no answer. Nothing written."
 		case "$choice" in
-			''|*[!0-9]*) ;;
+			'')            printf 'a number, 1 to %d.\n' "${#list[@]}" ;;
+			*[!0-9]*)      printf 'digits only, 1 to %d.\n' "${#list[@]}" ;;
 			*)
 				if [ "$choice" -ge 1 ] && [ "$choice" -le "${#list[@]}" ]; then
-					printf '%s' "${list[$((choice - 1))]}"
+					PICKED="${list[$((choice - 1))]}"
 					return
 				fi
+				printf 'there is no %s on that list. 1 to %d.\n' "$choice" "${#list[@]}"
 				;;
 		esac
-		printf 'not one of those.\n' >&2
 	done
 }
 
@@ -137,12 +148,11 @@ PAYLOAD=""
 while [ "$#" -gt 0 ]; do
 	case "$1" in
 		--reset)          RESET=yes ;;
-		--colocutor)      shift; [ "$#" -gt 0 ] || die "--colocutor wants a name."; ME="$1" ;;
-		--colocutor=*)    ME="${1#--colocutor=}" ;;
+		--from)           shift; [ "$#" -gt 0 ] || die "--from wants a name."; ME="$1" ;;
+		--from=*)         ME="${1#--from=}" ;;
 		--payload)        shift; [ "$#" -gt 0 ] || die "--payload wants a json object."; PAYLOAD="$1" ;;
 		--payload=*)      PAYLOAD="${1#--payload=}" ;;
-		-*)               die "$1 is not an argument this script knows." ;;
-		*)                ME="$1" ;;
+		*)                die "$1 is not an argument this script knows." ;;
 	esac
 	shift
 done
@@ -260,7 +270,8 @@ if [ -n "$PAYLOAD" ]; then
 fi
 
 if [ -z "$ME" ]; then
-	ME="$(pick_from_list 'Who are you?' "${SENDERS[@]}")"
+	pick_from_list 'Who are you?' "${SENDERS[@]}"
+	ME="$PICKED"
 fi
 
 # Everybody but yourself. Writing a message to yourself is not a thing.
@@ -270,7 +281,8 @@ for name in "${NAME_LIST[@]}"; do
 done
 [ "${#RECIPIENTS[@]}" -gt 0 ] || die "there is nobody but you in colocutor_names.json."
 
-TO="$(pick_from_list "You are $ME. Who is this for?" "${RECIPIENTS[@]}")"
+pick_from_list "You are $ME. Who is this for?" "${RECIPIENTS[@]}"
+TO="$PICKED"
 
 # ------------------------------------------------------------ last message
 #
