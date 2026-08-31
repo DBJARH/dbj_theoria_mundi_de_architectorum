@@ -125,9 +125,8 @@ pick_from_list() {
 		if [ "$asked" -gt "$ASKS" ]; then
 			die "$ASKS tries and no number between 1 and ${#list[@]}. Nothing written."
 		fi
-		printf 'number: '
 		# Ctrl-D, or a pipe that ran out.
-		read -r choice || die "no answer. Nothing written."
+		read -e -r -p 'number: ' choice || die "no answer. Nothing written."
 		case "$choice" in
 			'')            printf 'a number, 1 to %d.\n' "${#list[@]}" ;;
 			*[!0-9]*)      printf 'digits only, 1 to %d.\n' "${#list[@]}" ;;
@@ -312,8 +311,11 @@ printf 'Empty line ends it, then you confirm. Ctrl-C throws it away.\n\n'
 # 2026-08-31, both written as a bare number.
 TYPED=()
 while true; do
-	printf 'msg> '
-	read -r line || break
+	# -e for readline: without it the arrow keys and backspace go into the
+	# message as raw escape sequences. DBJ's 16:23 message carries a run of
+	# them. -p prints the prompt through readline, which is the only way it
+	# survives a line being edited.
+	read -e -r -p 'msg> ' line || break
 	[ -z "$line" ] && break
 	if [ "${#line}" -gt "$MAXLEN" ]; then
 		printf '  %d chars, %d is the limit. Say it again shorter.\n' "${#line}" "$MAXLEN"
