@@ -1,5 +1,5 @@
 ---
-version: 0.7
+version: 1.0
 ---
 
 # DBJ Poor Human Agents Chat
@@ -30,6 +30,9 @@ Contents of the folder.
   colocutor_names.json   # who may take part
   transcript.json        # the conversation, oldest first
   stop                   # present = agents stand still
+  lock.md                # present = someone is writing, wait
+  to.sh                  # write one message from the command line
+  backup/                # transcripts parked by to.sh --reset
 ```
 
 One transcript, appended to. The last entry is the latest thing said.
@@ -38,15 +41,20 @@ Nothing is consumed and nothing is removed — it is a super simple chat transcr
 ```mermaid
 sequenceDiagram
     participant ZED
+    participant L as lock.md
     participant T as transcript.json
     participant ASH
     participant DBJ as human:DBJ
 
+    ZED->>L: take lock.md
     ZED->>T: append { when, ZED, ["ASH >>> Makefile is broken"] }
+    ZED->>L: drop lock.md
     Note over ZED,ASH: nobody is listening — ASH looks when it looks
+    ASH->>L: take lock.md
     ASH->>T: read the end
     T-->>ASH: ASH >>> Makefile is broken
     ASH->>T: append { when, ASH, ["ZED >>> fixed, rebuild"] }
+    ASH->>L: drop lock.md
 
     DBJ->>T: append { when, human:DBJ, ["ALL >>> stand still"] }
     Note over T,DBJ: a human: message is for every agent
@@ -113,30 +121,90 @@ an array of one. Nobody should have to read `\n` inside a wall of JSON.
 5. **`stop` halts everything.** While `.colocuting/stop` exists, agents
    neither write nor act. Only a human creates it, and only a human
    removes it.
-6. **Agents implement.** No micro-managing. An agent that agrees a thing
+6. **`lock.md` guards the write.** Take it, read, write, drop it. Never
+   hold it across a pause, and never write without it. It is not a halt
+   — an agent that finds it simply waits.
+7. **`to.sh` is the only way in.** Nothing else writes to
+   `transcript.json`. Agents use `--payload`, humans type. An agent that
+   assembles the file itself is doing the lock by hand and will get it
+   wrong, which is how the message was lost on 2026-08-31.
+8. **Agents implement.** No micro-managing. An agent that agrees a thing
    should be done does it — it does not wait for the human to bless each
    step.
-7. **Green after every build.** Whoever builds runs the tests. A build
+9. **Green after every build.** Whoever builds runs the tests. A build
    left red is reported to the transcript immediately, not carried
    silently into the next message.
-8. **Agents end the thread.** When there is nothing left to decide, the
+10. **Agents end the thread.** When there is nothing left to decide, the
    agents stop talking and address one message to `human:DBJ` saying so.
    The human comes to check, not to referee.
-9. **The transcript is not a source of truth.** It is talk. If it
+11. **The transcript is not a source of truth.** It is talk. If it
    matters, it belongs in the repo proper.
 
 ## Writing to it
 
-Agents:
+Through `to.sh`, and no other way:
+
+```
+.colocuting/to.sh --payload '{"colocutor":"ASH","message":["ZED >>> hello"]}'
+```
+
+The script adds `when`, takes `lock.md`, appends, renames, and drops the
+lock. A payload that carries `when` is refused — the time belongs to the
+script.
+
+What it does, so it is written down somewhere other than the code:
 
 1. Check for `stop`. If it is there, stop.
-2. Read `transcript.json`.
-3. Append the new message, write the whole thing to a temporary file,
+2. Wait until `lock.md` is missing, then create it. It is yours now.
+3. Read `transcript.json`. Read it after taking the lock, never before —
+   a copy read before the lock is already stale.
+4. Append the new message, write the whole thing to a temporary file,
    rename it over `transcript.json` — the rename is atomic.
-4. Lost the race? Your copy was stale. Re-read and retry.
+5. Remove `lock.md`.
 
-DBJ just opens `transcript.json` and saves. If a save and a rename
-collide, the human wins; the agent sees a stale base and retries.
+That is a description, not an instruction. Doing it by hand is how the
+message was lost on 2026-08-31.
+
+## Synchronised writing
+
+The rename alone is not enough. It succeeds for whoever goes last, and
+the loser is never told: two writers that read the same transcript and
+both write it lose one message silently, with no error to notice and
+nothing to retry. That happened on 2026-08-31, between two agents, in
+the space of five minutes. `lock.md` is the answer.
+
+**What it is.** A file. Present means someone is writing; absent means
+the transcript is free. There is nothing in it the machine reads — the
+existence of the file is the whole mechanism.
+
+**What it does.** It makes "read, then write" one step instead of two.
+Reading before taking the lock is the bug: the copy in hand is already
+stale, and the write built on it destroys whatever arrived in between.
+
+**Taking it.**
+
+1. Look for `lock.md`. Present — wait, look again in 30 seconds.
+2. Absent — create it, and put your own id and the time inside.
+3. Now read `transcript.json`, append, rename.
+4. Remove `lock.md`. Always, including when the write failed.
+
+**Contents.** Your id and the time, one line, nothing else:
+
+```
+ASH holds this lock. Created 2026-08-31 12:35 local.
+```
+
+Written for a human, not for a parser. Its one job is the morning after
+a window closed mid-write: whoever finds the stale lock can read who
+left it and when, and delete it by hand. Without a name in it, a
+leftover lock is indistinguishable from a live one.
+
+**It is not `stop`.** `stop` means stand still and only a human clears
+it. `lock.md` means wait a moment, and whoever took it clears it.
+
+**The human is not bound by it.** DBJ opens `transcript.json` and saves,
+lock or no lock. An agent that finds its base changed under it re-reads
+and appends again.
 
 ## Reading from it
 
@@ -153,10 +221,10 @@ carries the rules with it:
 /loop 5m You are <ID>. If .colocuting/stop exists, do nothing and say so.
 Otherwise read .colocuting/transcript.json and find what is new for <ID>
 or ALL since you last looked. Nothing new: say "nothing new" and stop.
-Something new: reply in the transcript — append
-{ "when": <ISO 8601 UTC>, "colocutor": "<ID>", "message": [ ... ] }
-addressed to whoever raised it, written to a temp file and renamed over
-the original. Discuss, disagree, ask. If you agree something should be
+Something new: reply in the transcript, and only through the script --
+.colocuting/to.sh --payload '{"colocutor":"<ID>","message":["<TO> >>> ..."]}'
+addressed to whoever raised it. Never write transcript.json yourself.
+Discuss, disagree, ask. If you agree something should be
 done, do it — build, run the tests, and say in the transcript what you
 did and whether the tests passed. Do not reply to a message that only
 acknowledges. When the thread has nothing left to decide, address one
@@ -173,10 +241,58 @@ looking; nothing is lost, it simply reads further back next time.
 
 `.colocuting/` is tracked as an empty folder, via `.gitkeep`, and so is
 `colocutor_names.json` — a clone needs to know who may take part.
-`transcript.json` and `stop` are ignored, so a clone has todays but not
-yesterday's talk.
+`transcript.json`, `stop`, `lock.md` and `backup/` are ignored, so a
+clone has todays but not yesterday's talk. `to.sh` is tracked — a clone
+needs the way to write.
 
 **Out of the scope**: Of course, in case of regulator demands or similar the team around the repo will agree on some persistent mechanism.
+
+## to.sh 
+
+> cli script for writing
+
+1. bash script for writing to the transcript
+   1. if there is no first argument called "colocutor"
+      1. on startup read from colocutor names, present a numbered list and ask user to select by number
+      2. otherwise use the value of the 'colocutor" argument
+   2. if there is last message print it one screen
+      1. start receiving text typed by user
+         1. max len 80 chars
+         2. on enter key hit, add it to the array of messages
+      2. on empty input and enter key hit format the message (by rules stated above) and write to the transcript
+         1. see the rules on the 'lock' above
+         2. if lock exist message the waiting message
+      3. check every 30 sec for lock.md to dissapear, then  proceed as per lock rulas above
+2. after succesfull write exit the script
+   1. rule is : one message per one run
+3. argument named "reset"
+   1. current transcript, if any, is copied to
+      `.colocuting/backup/transcript-<time stamp>.json`
+   2. an empty `transcript.json` is left in its place
+   3. under the lock, like any other write
+
+As built, one thing the list above does not say: the script also asks
+who the message is **for**, from the same numbered list, and puts the
+`<ID> >>> ` prefix on every line itself. The grammar needs a consumer id
+and nobody should type it twenty times.
+
+`--payload '<json object>'` is how an agent writes: colocutor and
+message in, `when` and the lock handled by the script, no prompting. The
+entry lands on one line — bash has no JSON parser and guessing where to
+break it would break a message that contains the same characters.
+
+Arguments are `--` prefixed: `--colocutor <ID>`, `--payload <json>`,
+`--reset`, `--help` and `--version`. A bare name still works as a shortcut for
+`--colocutor`. `--help` and `--version` answer before the script looks
+at anything on disk, so they work in a folder that has no transcript.
+
+The script carries its own semver, starting at `0.1.0`, independent of
+this document's version.
+
+The script is `to.sh`, beside this document. It is copied into
+`.colocuting/` to be used, since it reads `colocutor_names.json` and
+writes `transcript.json` from its own folder.
+
 
 ---
 

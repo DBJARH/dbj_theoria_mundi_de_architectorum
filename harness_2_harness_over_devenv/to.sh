@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+#
+# to.sh -- write one message to the .colocuting transcript.
+#
+# One argument per run, and one message per run. A message is an array of
+# one or more strings, 1024 characters each.
+#
+#   ./to.sh                    pick who you are from a numbered list
+#   ./to.sh --colocutor ASH    you are ASH, skip the list
+#   ./to.sh ASH                the same, without the flag
+#   ./to.sh --reset            park the transcript, start an empty one
+#   ./to.sh --help             the same list, on screen
+#   ./to.sh --version          the version and nothing else
+#
+# It lives beside the transcript, in .colocuting/. Run it from anywhere.
+#
+# Timestamps are local time written with a Z, which is what every entry
+# in the transcript already carries. Wrong, deliberately, so the thread
+# keeps sorting. DBJ ruled on 2026-08-31 to leave it.
+#
+# (c) 2026 by dbj@dbj.org | MIT license
+
+set -u
+
+VERSION="0.2.0"
+COPYRIGHT="(c) 2026 by dbj@dbj.org | MIT license"
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NAMES="$HERE/colocutor_names.json"
+TRANSCRIPT="$HERE/transcript.json"
+LOCK="$HERE/lock.md"
+STOP="$HERE/stop"
+BACKUP="$HERE/backup"
+MAXLEN=1024
+WAIT=30
+TRIES=10
+
+die() { printf '%s\n' "$*" >&2; exit 1; }
+
+usage() {
+	printf '%s\n' \
+		"to.sh $VERSION -- write one message to the .colocuting transcript." \
+		"A message is built in here as an array of one or more strings, $MAXLEN characters each." \
+		"ENTER on an empty line ends and sends the message." \
+		"" \
+		"One argument per run, and one message per one run." \
+		"" \
+		"" \
+		"  ./to.sh                    pick who you are from a numbered list, then pick to whom you will send" \
+		"  ./to.sh --colocutor ASH    you are sender ASH, skip the list" \
+		"  ./to.sh ASH                the same, without the flag" \
+		"  ./to.sh --reset            remove the transcript and park it in the backup/, start with empty transcript" \
+		"  ./to.sh --payload '<json>' just write the message json, without asking anything -- for agents" \
+		"  ./to.sh --help             this" \
+		"  ./to.sh --version          the version and nothing else" \
+		"" \
+		"to.sh It asks who the message is for, then takes text lines one by one." \
+		"Before writing it waits for lock.md to be missing, it is made if somebody else is writing." \
+		"It gives up after 5 minutes and exits 1 -- a stale lock is a human's job to remove." \
+		"" \
+		"--payload is the way for an agent to write. One JSON object, no when key:" \
+		"  --payload '{\"colocutor\":\"ASH\",\"message\":[\"ZED >>> hello\"]}'" \
+		"The when timestamp is added here, and the lock is taken here." \
+		"" \
+		"Nothing else may write to transcript.json. This script should be the only way." \
+		"" \
+		"If you give more than one argument:" \
+		"--help and --version win over everything, --reset wins over writing." \
+		"Crude on purpose, to be sorted out later." \
+		"" \
+		"$COPYRIGHT"
+}
+
+# --help and --version answer before anything else is looked at -- no
+# names file, no transcript, no stop, no lock.
+for arg in "$@"; do
+	case "$arg" in
+		--help|-h) usage; exit 0 ;;
+		--version) printf '%s\n' "$VERSION"; exit 0 ;;
+	esac
+done
+
+# ---------------------------------------------------------------- stop
+
+if [ -e "$STOP" ]; then
+	die "stop is present. Nobody writes. Remove it yourself when you mean to."
+fi
+
+[ -f "$NAMES" ] || die "no colocutor_names.json beside this script."
+
+# ------------------------------------------------------------- who are you
+#
+# colocutor_names.json is one array of quoted strings. Pull them out with
+# grep -o rather than a JSON parser -- the file is three lines long and
+# has looked the same since the day it was written.
+
+mapfile -t NAME_LIST < <(grep -o '"[^"]*"' "$NAMES" | grep -v '^"colocutors"$' | tr -d '"')
+[ "${#NAME_LIST[@]}" -gt 0 ] || die "colocutor_names.json holds no names."
+
+# ALL is a recipient and never a sender -- nobody writes as everybody. So
+# the two lists differ, and the numbers on them differ with it.
+SENDERS=()
+for name in "${NAME_LIST[@]}"; do
+	[ "$name" = "ALL" ] || SENDERS+=("$name")
+done
+[ "${#SENDERS[@]}" -gt 0 ] || die "colocutor_names.json holds nobody who could write."
+
+# pick_from_list <prompt> <name...>  -- echoes the chosen name.
+pick_from_list() {
+	local prompt="$1" i choice
+	shift
+	local list=("$@")
+	printf '%s\n' "$prompt" >&2
+	for i in "${!list[@]}"; do
+		printf '  %d) %s\n' "$((i + 1))" "${list[$i]}" >&2
+	done
+	while true; do
+		printf 'number: ' >&2
+		read -r choice || die ""
+		case "$choice" in
+			''|*[!0-9]*) ;;
+			*)
+				if [ "$choice" -ge 1 ] && [ "$choice" -le "${#list[@]}" ]; then
+					printf '%s' "${list[$((choice - 1))]}"
+					return
+				fi
+				;;
+		esac
+		printf 'not one of those.\n' >&2
+	done
+}
+
+ME=""
+RESET=no
+PAYLOAD=""
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--reset)          RESET=yes ;;
+		--colocutor)      shift; [ "$#" -gt 0 ] || die "--colocutor wants a name."; ME="$1" ;;
+		--colocutor=*)    ME="${1#--colocutor=}" ;;
+		--payload)        shift; [ "$#" -gt 0 ] || die "--payload wants a json object."; PAYLOAD="$1" ;;
+		--payload=*)      PAYLOAD="${1#--payload=}" ;;
+		-*)               die "$1 is not an argument this script knows." ;;
+		*)                ME="$1" ;;
+	esac
+	shift
+done
+
+if [ -n "$ME" ]; then
+	[ "$ME" = "ALL" ] && die "ALL is who you write to, not who you are."
+	found=no
+	for name in "${SENDERS[@]}"; do
+		[ "$name" = "$ME" ] && found=yes
+	done
+	[ "$found" = yes ] || die "$ME is not in colocutor_names.json."
+fi
+
+# ----------------------------------------------------------------- reset
+#
+# Park today's transcript in backup/ under a dated name and start an empty
+# one. Under the lock like any other write, and on its own -- no message
+# follows it.
+
+take_lock() {
+	local tries=0
+	while [ -e "$LOCK" ]; do
+		tries=$((tries + 1))
+		if [ "$tries" -gt "$TRIES" ]; then
+			printf 'lock.md still held after %d seconds by: %s\n' \
+				"$((TRIES * WAIT))" "$(head -1 "$LOCK" 2>/dev/null)" >&2
+			die "giving up. If that window is gone the lock is stale -- delete it by hand."
+		fi
+		printf 'lock.md is held by: %s\n' "$(head -1 "$LOCK" 2>/dev/null)"
+		printf 'waiting %d seconds, try %d of %d.\n' "$WAIT" "$tries" "$TRIES"
+		sleep "$WAIT"
+	done
+	printf '%s holds this lock. Created %s local.\n' "${ME:-someone}" "$(date '+%Y-%m-%d %H:%M')" > "$LOCK" \
+		|| die "could not create lock.md."
+	trap 'rm -f "$LOCK"' EXIT
+}
+
+if [ "$RESET" = yes ]; then
+	take_lock
+	if [ -f "$TRANSCRIPT" ]; then
+		mkdir -p "$BACKUP" || die "could not make $BACKUP."
+		STAMP="$(date '+%Y%m%d-%H%M%S')"
+		PARKED="$BACKUP/transcript-$STAMP.json"
+		# Two resets inside one second would otherwise land on the same
+		# name and the older backup would be gone without a word.
+		nth=1
+		while [ -e "$PARKED" ]; do
+			nth=$((nth + 1))
+			PARKED="$BACKUP/transcript-$STAMP-$nth.json"
+		done
+		cp "$TRANSCRIPT" "$PARKED" || die "could not copy the transcript to $PARKED."
+		printf 'parked as backup/%s\n' "$(basename "$PARKED")"
+	else
+		printf 'no transcript to park.\n'
+	fi
+	printf '[\n]\n' > "$TRANSCRIPT" || die "could not write an empty transcript."
+	printf 'transcript.json is empty and ready.\n'
+	exit 0
+fi
+
+# --------------------------------------------------------------- payload
+#
+# How an agent writes. One JSON object on the command line, holding the
+# colocutor and the message, and nothing else. The when timestamp belongs
+# to this script, so one given in the payload is refused rather than
+# quietly dropped -- a caller that sets it has misunderstood something.
+#
+# There is no JSON parser here on purpose. The payload is written through
+# as it came, with "when" put in front of it, so a malformed object lands
+# in the file malformed and the caller sees its own mistake.
+
+if [ -n "$PAYLOAD" ]; then
+	FLAT="$(printf '%s' "$PAYLOAD" | tr -d '\n\r')"
+	case "$FLAT" in
+		\{*\}) ;;
+		*) die "--payload must be one json object, { to }." ;;
+	esac
+	case "$FLAT" in
+		*'"colocutor"'*) ;;
+		*) die "--payload has no colocutor key." ;;
+	esac
+	case "$FLAT" in
+		*'"message"'*) ;;
+		*) die "--payload has no message key." ;;
+	esac
+	case "$FLAT" in
+		*'"when"'*) die "--payload must not carry when. to.sh writes the time." ;;
+	esac
+
+	# Strip the outer braces; what is left is the body of the entry.
+	BODY="${FLAT#\{}"
+	BODY="${BODY%\}}"
+
+	take_lock
+	WHEN="$(date '+%Y-%m-%dT%H:%M:%SZ')"
+	TMP="$TRANSCRIPT.tmp.$$"
+	{
+		if [ -f "$TRANSCRIPT" ] && grep -q '^  {' "$TRANSCRIPT"; then
+			head -n -1 "$TRANSCRIPT" | sed '$ s/^\( *\)}$/\1},/'
+		else
+			printf '[\n'
+		fi
+		printf '  {\n'
+		printf '    "when": "%s",\n' "$WHEN"
+		# One line, whatever the caller's formatting was. Bash has no JSON
+		# parser and guessing where to break the line would break a message
+		# that happens to contain the same characters.
+		printf '   %s\n' "$BODY"
+		printf '  }\n'
+		printf ']\n'
+	} > "$TMP" || die "could not write $TMP."
+	mv "$TMP" "$TRANSCRIPT" || die "could not rename over the transcript."
+	printf 'Written at %s.\n' "$WHEN"
+	exit 0
+fi
+
+if [ -z "$ME" ]; then
+	ME="$(pick_from_list 'Who are you?' "${SENDERS[@]}")"
+fi
+
+TO="$(pick_from_list "You are $ME. Who is this for?" "${NAME_LIST[@]}")"
+
+# ------------------------------------------------------------ last message
+#
+# Entries are pretty-printed at two spaces, so the last one starts at the
+# last line that is exactly "  {".
+
+if [ -f "$TRANSCRIPT" ]; then
+	start="$(grep -n '^  {' "$TRANSCRIPT" | tail -1 | cut -d: -f1)"
+	if [ -n "$start" ]; then
+		printf '\n---- last message found in the transcript ----\n'
+		# Everything from the last entry to the end, less the array's
+		# own closing bracket -- that is file, not message.
+		sed -n "${start},\$p" "$TRANSCRIPT" | grep -v '^]$'
+		printf -- '---------------------------------------------\n\n'
+	fi
+fi
+
+# ----------------------------------------------------------------- typing
+
+printf 'Type your message to %s, one line at a time, max %d chars.\n' "$TO" "$MAXLEN"
+printf 'Empty line sends it. Ctrl-C throws it away.\n\n'
+
+LINES=()
+while true; do
+	printf '> '
+	read -r line || break
+	[ -z "$line" ] && break
+	if [ "${#line}" -gt "$MAXLEN" ]; then
+		printf '  %d chars, %d is the limit. Say it again shorter.\n' "${#line}" "$MAXLEN"
+		continue
+	fi
+	LINES+=("$line")
+done
+
+[ "${#LINES[@]}" -gt 0 ] || die "nothing typed. Nothing written."
+
+# ------------------------------------------------------------------ lock
+
+take_lock
+
+# ------------------------------------------------------------------ write
+
+WHEN="$(date '+%Y-%m-%dT%H:%M:%SZ')"
+TMP="$TRANSCRIPT.tmp.$$"
+
+{
+	# Read the transcript AFTER taking the lock, never before.
+	if [ -f "$TRANSCRIPT" ] && grep -q '^  {' "$TRANSCRIPT"; then
+		# Drop the closing ] and put the comma on the last entry's brace,
+		# so the file stays as readable as the ones written by hand.
+		head -n -1 "$TRANSCRIPT" | sed '$ s/^\( *\)}$/\1},/'
+	else
+		printf '[\n'
+	fi
+
+	printf '  {\n'
+	printf '    "when": "%s",\n' "$WHEN"
+	printf '    "colocutor": "%s",\n' "$ME"
+	printf '    "message": [\n'
+	last=$(( ${#LINES[@]} - 1 ))
+	for i in "${!LINES[@]}"; do
+		# Only \ and " need escaping; the input is one typed line, so
+		# there are no newlines or tabs in it.
+		esc="$(printf '%s' "${LINES[$i]}" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
+		if [ "$i" -eq "$last" ]; then
+			printf '      "%s >>> %s"\n' "$TO" "$esc"
+		else
+			printf '      "%s >>> %s",\n' "$TO" "$esc"
+		fi
+	done
+	printf '    ]\n'
+	printf '  }\n'
+	printf ']\n'
+} > "$TMP" || die "could not write $TMP."
+
+mv "$TMP" "$TRANSCRIPT" || die "could not rename over the transcript."
+
+printf '\nWritten. %d line(s) from %s to %s at %s.\n' "${#LINES[@]}" "$ME" "$TO" "$WHEN"
+exit 0
