@@ -41,7 +41,8 @@ usage() {
 	printf '%s\n' \
 		"to $VERSION -- write one message to the .colocuting transcript." \
 		"A message is built in here as an array of one or more strings, $MAXLEN characters each." \
-		"ENTER on an empty line ends and sends the message." \
+		"ENTER on an empty line ends the message, then it is read back to confirm." \
+		"The message prompt is msg> -- the menus ask for a number: instead." \
 		"" \
 		"One argument per run, and one message per one run." \
 		"" \
@@ -290,21 +291,40 @@ fi
 # ----------------------------------------------------------------- typing
 
 printf 'Type your message to %s, one line at a time, max %d chars.\n' "$TO" "$MAXLEN"
-printf 'Empty line sends it. Ctrl-C throws it away.\n\n'
+printf 'Empty line ends it, then you confirm. Ctrl-C throws it away.\n\n'
 
-LINES=()
+# TYPED, not LINES. LINES is bash's own -- the terminal height, which the
+# shell rewrites after any external command when checkwinsize is on, which
+# it is by default. An array called LINES survives until the first `date`
+# or `sed` and then holds the window's row count. It cost two messages on
+# 2026-08-31, both written as a bare number.
+TYPED=()
 while true; do
-	printf '> '
+	printf 'msg> '
 	read -r line || break
 	[ -z "$line" ] && break
 	if [ "${#line}" -gt "$MAXLEN" ]; then
 		printf '  %d chars, %d is the limit. Say it again shorter.\n' "${#line}" "$MAXLEN"
 		continue
 	fi
-	LINES+=("$line")
+	TYPED+=("$line")
 done
 
-[ "${#LINES[@]}" -gt 0 ] || die "nothing typed. Nothing written."
+[ "${#TYPED[@]}" -gt 0 ] || die "nothing typed. Nothing written."
+
+# Read it back before it goes in. The transcript is append only, so a
+# message typed at the wrong prompt -- menu digits, say -- stays there
+# for good. One keystroke is cheaper than that.
+
+printf '\nTo %s:\n' "$TO"
+for line in "${TYPED[@]}"; do
+	printf '  %s\n' "$line"
+done
+printf 'send it? [Y/n] '
+read -r answer || die "nothing confirmed. Nothing written."
+case "$answer" in
+	[Nn]*) die "thrown away. Nothing written." ;;
+esac
 
 # ------------------------------------------------------------------ lock
 
@@ -329,11 +349,11 @@ TMP="$TRANSCRIPT.tmp.$$"
 	printf '    "when": "%s",\n' "$WHEN"
 	printf '    "colocutor": "%s",\n' "$ME"
 	printf '    "message": [\n'
-	last=$(( ${#LINES[@]} - 1 ))
-	for i in "${!LINES[@]}"; do
+	last=$(( ${#TYPED[@]} - 1 ))
+	for i in "${!TYPED[@]}"; do
 		# Only \ and " need escaping; the input is one typed line, so
 		# there are no newlines or tabs in it.
-		esc="$(printf '%s' "${LINES[$i]}" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
+		esc="$(printf '%s' "${TYPED[$i]}" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')"
 		if [ "$i" -eq "$last" ]; then
 			printf '      "%s >>> %s"\n' "$TO" "$esc"
 		else
@@ -347,5 +367,5 @@ TMP="$TRANSCRIPT.tmp.$$"
 
 mv "$TMP" "$TRANSCRIPT" || die "could not rename over the transcript."
 
-printf '\nWritten. %d line(s) from %s to %s at %s.\n' "${#LINES[@]}" "$ME" "$TO" "$WHEN"
+printf '\nWritten. %d line(s) from %s to %s at %s.\n' "${#TYPED[@]}" "$ME" "$TO" "$WHEN"
 exit 0
