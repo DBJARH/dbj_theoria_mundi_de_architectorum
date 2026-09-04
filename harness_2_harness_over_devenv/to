@@ -241,6 +241,12 @@ if [ -n "$PAYLOAD" ]; then
 		*'"when"'*) die "--payload must not carry when. to writes the time." ;;
 	esac
 
+	# ALL is a recipient and never a sender, same rule as the interactive
+	# path (SENDERS excludes it). The payload path skipped that check --
+	# DBJ caught it 2026-09-04 after a payload wrote colocutor:"ALL".
+	PAYLOAD_COLOCUTOR="$(printf '%s' "$FLAT" | grep -o '"colocutor"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/')"
+	[ "$PAYLOAD_COLOCUTOR" = "ALL" ] && die "--payload colocutor must not be ALL. ALL is a recipient, never a sender."
+
 	# Strip the outer braces; what is left is the body of the entry.
 	BODY="${FLAT#\{}"
 	BODY="${BODY%\}}"
@@ -256,10 +262,13 @@ if [ -n "$PAYLOAD" ]; then
 		fi
 		printf '  {\n'
 		printf '    "when": "%s",\n' "$WHEN"
-		# One line, whatever the caller's formatting was. Bash has no JSON
-		# parser and guessing where to break the line would break a message
-		# that happens to contain the same characters.
-		printf '   %s\n' "$BODY"
+		# The caller's formatting is gone -- tr took the newlines out. It is
+		# put back on one rule only: every message string on this bus starts
+		# with a colocutor name and >>>, so a break before each of those puts
+		# one string per line and cannot land in the middle of prose. DBJ
+		# asked for this on 2026-09-02: one line per string, to read it.
+		printf '   %s\n' "$BODY" |
+			sed 's/\(\[\|,\)\("[A-Za-z:]* >>> \)/\1\n      \2/g'
 		printf '  }\n'
 		printf ']\n'
 	} > "$TMP" || die "could not write $TMP."
